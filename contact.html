@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact · Antra</title>
+<meta name="description" content="Reach out to Antra — to order, to ask about a blend, or to create something together.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230c0a0f'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-size='20' fill='%23c9a86a' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script>(function(){try{var t=localStorage.getItem('antra-theme');if(t!=='day'&&t!=='night')t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'day':'night';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','night');}})();</script>
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body data-page="contact.html">
+<header id="site-header"></header>
+
+<section class="page-hero">
+  <div class="bg"><img src="assets/img/campaign-2.jpg" alt="Contact Antra"></div>
+  <div class="wrap">
+    <p class="crumb"><a href="index.html">Home</a> / Contact</p>
+    <h1>Reach Out to Us</h1>
+    <p class="lead">Whether you’re ready to order, curious about a blend, or expecting and need guidance to the safest oils — we’d love to hear from you.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap" style="max-width:880px">
+    <div class="grid cols-2 reveal">
+      <a class="ritual-card" href="mailto:antra.fem@gmail.com?subject=Hello%20Antra" style="display:block">
+        <div class="step">✉</div>
+        <h3>Email</h3>
+        <p>antra.fem@gmail.com<br>For orders, questions, and bespoke enquiries.</p>
+      </a>
+      <a class="ritual-card" id="ig-card" href="#" target="_blank" rel="noopener" style="display:block">
+        <div class="step">❀</div>
+        <h3>Instagram</h3>
+        <p id="ig-text">Follow the ritual.</p>
+      </a>
+    </div>
+
+    <div class="prose reveal" style="margin-top:3.4rem">
+      <p class="eyebrow center">A note for mothers &amp; mothers-to-be</p>
+      <p style="text-align:center">While our perfumes are 100% natural, certain essential oils may not be ideal during pregnancy or nursing. If you are expecting, please reach out — we’ll gladly guide you to blends that are safest for your journey.</p>
+      <div class="center" style="margin-top:2rem">
+        <a class="btn solid lg" href="mailto:antra.fem@gmail.com?subject=Enquiry%20%E2%80%94%20Antra">Write to us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer id="site-footer"></footer>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/products.js"></script>
+<script src="assets/js/site.js"></script>
+<script>
+  (function(){
+    var c = window.ANTRA_CONFIG || {};
+    var card = document.getElementById('ig-card');
+    if (c.instagram) {
+      card.href = 'https://instagram.com/' + c.instagram;
+      document.getElementById('ig-text').innerHTML = '@' + c.instagram + '<br>Follow the ritual — new moons &amp; small-batch drops.';
+    } else {
+      card.style.display = 'none';
+    }
+  })();
+</script>
+</body>
+</html>

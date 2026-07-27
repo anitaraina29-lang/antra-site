@@ -1,0 +1,57 @@
+/* =========================================================
+   ANTRA — Pay4U signing (Vercel serverless function)
+   Runs on Vercel's fast serverless runtime (no server to keep
+   awake, no cold "sleep" like Render's free plan).
+   The secret salt stays here on the server — never in the browser.
+
+   NOTE: hash sequence + endpoint follow the common PayU-style
+   key|salt model. Confirm the EXACT sequence and payment URL from
+   Pay4U's own docs and adjust below if they differ.
+   ========================================================= */
+const crypto = require("crypto");
+
+module.exports = function handler(req, res) {
+  if (req.method !== "POST") {
+    res.status(405).send("Method not allowed");
+    return;
+  }
+
+  const KEY = process.env.PAY4U_KEY;
+  const SALT = process.env.PAY4U_SALT;
+  const ENDPOINT = process.env.PAY4U_ENDPOINT;
+  const SUCCESS_URL = process.env.SUCCESS_URL;
+  const FAILURE_URL = process.env.FAILURE_URL;
+
+  const b = req.body || {};
+  const amount = String(b.amount || "").trim();
+  const productinfo = String(b.productinfo || "Antra order").trim();
+  const firstname = String(b.firstname || "Customer").trim();
+  const email = String(b.email || "").trim();
+  const phone = String(b.phone || "").trim();
+
+  if (!amount || !email) {
+    res.status(400).send("amount and email are required");
+    return;
+  }
+
+  const txnid = "ANTRA" + Date.now() + Math.floor(Math.random() * 1000);
+
+  // key|txnid|amount|productinfo|firstname|email|udf1..5|||||salt
+  const seq = [KEY, txnid, amount, productinfo, firstname, email,
+    "", "", "", "", "", "", "", "", "", "", SALT].join("|");
+  const hash = crypto.createHash("sha512").update(seq).digest("hex");
+
+  const fields = {
+    key: KEY, txnid, amount, productinfo, firstname, email, phone,
+    surl: SUCCESS_URL, furl: FAILURE_URL, hash,
+  };
+  const inputs = Object.entries(fields)
+    .map(([k, v]) => `<input type="hidden" name="${k}" value="${String(v).replace(/"/g, "&quot;")}">`)
+    .join("\n");
+
+  res.setHeader("Content-Type", "text/html");
+  res.status(200).send(`<!doctype html><html><body onload="document.forms[0].submit()">
+    <p style="font-family:sans-serif">Redirecting you to secure payment…</p>
+    <form method="post" action="${ENDPOINT}">${inputs}</form>
+  </body></html>`);
+};

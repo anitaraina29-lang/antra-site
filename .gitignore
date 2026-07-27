@@ -1,0 +1,11 @@
+# dependencies
+server/node_modules/
+node_modules/
+
+# secrets — NEVER upload these
+server/.env
+.env
+
+# OS junk
+.DS_Store
+Thumbs.db

@@ -1,0 +1,20 @@
+# Netlify configuration for the Antra website + Pay4U backend.
+[build]
+  publish = "."                      # the website files are in the repo root
+  functions = "netlify/functions"    # serverless functions live here
+
+# Pretty URLs -> serverless functions
+[[redirects]]
+  from = "/api/pay"
+  to = "/.netlify/functions/pay"
+  status = 200
+
+[[redirects]]
+  from = "/payment-success"
+  to = "/.netlify/functions/payment-success"
+  status = 200
+
+[[redirects]]
+  from = "/payment-failure"
+  to = "/.netlify/functions/payment-failure"
+  status = 200

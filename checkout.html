@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checkout · Antra</title>
+<meta name="description" content="Secure checkout — complete your Antra order.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230c0a0f'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-size='20' fill='%23c9a86a' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script>(function(){try{var t=localStorage.getItem('antra-theme');if(t!=='day'&&t!=='night')t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'day':'night';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','night');}})();</script>
+<link rel="stylesheet" href="assets/css/styles.css">
+<style>
+  .co-wrap{max-width:1040px;margin:0 auto;padding:120px 22px 80px}
+  .co-head{text-align:center;margin-bottom:38px}
+  .co-head .eyebrow{color:var(--gold);letter-spacing:.24em;text-transform:uppercase;font-size:.72rem}
+  .co-head h1{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:clamp(1.9rem,4vw,2.6rem);margin:.35em 0 .1em}
+  .co-head p{color:var(--muted);margin:0}
+  .co-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:34px;align-items:start}
+  @media (max-width:820px){.co-grid{grid-template-columns:1fr}}
+
+  .co-card{background:var(--bg-2);border:1px solid var(--line);border-radius:16px;padding:28px}
+  .co-card h2{font-family:Georgia,serif;font-weight:400;font-size:1.15rem;margin:0 0 20px;color:var(--ink)}
+
+  .fld{margin-bottom:18px}
+  .fld label{display:block;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  .fld input,.fld textarea{width:100%;background:var(--input-bg);border:1px solid var(--line);border-radius:10px;
+    padding:13px 14px;color:var(--ink);font-size:1rem;font-family:inherit;transition:border-color .2s}
+  .fld input:focus,.fld textarea:focus{outline:none;border-color:var(--gold)}
+  .fld textarea{resize:vertical;min-height:78px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:520px){.row2{grid-template-columns:1fr}}
+  .err{color:#e8836f;font-size:.82rem;margin-top:6px;display:none}
+  .fld.invalid input{border-color:#e8836f}
+  .fld.invalid .err{display:block}
+
+  /* order summary */
+  .sum-item{display:flex;gap:16px;align-items:center;padding-bottom:20px;border-bottom:1px solid var(--line-soft);margin-bottom:20px}
+  .sum-item img{width:74px;height:74px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+  .sum-item .nm{font-family:Georgia,serif;font-size:1.05rem;color:var(--ink)}
+  .sum-item .sz{color:var(--muted);font-size:.85rem;margin-top:3px}
+  .qty{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:9px}
+  .qty button{background:transparent;border:0;color:var(--ink);width:30px;height:30px;font-size:1.1rem;cursor:pointer}
+  .qty button:hover{background:rgba(201,168,106,.12)}
+  .qty span{min-width:34px;text-align:center;font-size:.95rem}
+  .sum-line{display:flex;justify-content:space-between;color:var(--muted);font-size:.92rem;margin:9px 0}
+  .sum-total{display:flex;justify-content:space-between;align-items:baseline;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+  .sum-total .lbl{color:var(--ink);font-size:1.05rem}
+  .sum-total .amt{font-family:Georgia,serif;font-size:1.7rem;color:var(--gold)}
+
+  .pay-btn{width:100%;margin-top:22px;padding:16px;font-size:1.02rem;border:0;border-radius:11px;cursor:pointer;
+    background:var(--gold);color:#1a1008;font-weight:600;letter-spacing:.02em;transition:filter .2s,transform .05s}
+  .pay-btn:hover{filter:brightness(1.06)}
+  .pay-btn:active{transform:translateY(1px)}
+  .pay-btn:disabled{opacity:.55;cursor:not-allowed}
+
+  .secure{display:flex;align-items:center;gap:9px;justify-content:center;margin-top:16px;color:var(--muted-2);font-size:.8rem}
+  .secure svg{width:15px;height:15px;flex:none}
+  .pay-methods{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  .pay-methods span{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);
+    border:1px solid var(--line-soft);border-radius:20px;padding:5px 12px}
+  .co-empty{text-align:center;color:var(--muted);padding:60px 0}
+  .co-empty a{color:var(--gold)}
+  .notice{background:rgba(201,168,106,.08);border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+    color:var(--muted);font-size:.82rem;margin-top:18px;line-height:1.5}
+</style>
+</head>
+<body data-page="checkout">
+<header id="site-header"></header>
+
+<main class="co-wrap">
+  <div class="co-head">
+    <p class="eyebrow">Secure Checkout</p>
+    <h1>Complete your ritual</h1>
+    <p>A few details, and your Antra order is on its way.</p>
+  </div>
+
+  <div id="checkout-body"></div>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/products.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/checkout.js"></script>
+</body>
+</html>

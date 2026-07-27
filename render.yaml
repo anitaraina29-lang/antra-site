@@ -1,0 +1,22 @@
+# Render deployment blueprint for the Antra website + Pay4U backend.
+# Render reads this automatically when you create a "Blueprint" service.
+services:
+  - type: web
+    name: antra
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      # Secrets — you type these in the Render dashboard (never stored in the repo)
+      - key: PAY4U_KEY
+        sync: false
+      - key: PAY4U_SALT
+        sync: false
+      - key: PAY4U_ENDPOINT
+        sync: false
+      - key: SUCCESS_URL
+        sync: false
+      - key: FAILURE_URL
+        sync: false
