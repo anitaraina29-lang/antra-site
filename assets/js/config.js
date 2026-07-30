@@ -24,7 +24,9 @@ window.ANTRA_CONFIG = {
   //  - endpoint is where the site sends the "Pay Now" click (the backend's /api/pay).
   //    Leave "/api/pay" when the site is served BY that backend (recommended).
   pay4u: {
-    enabled: true,
+    // Turn back to true once the real Pay4U endpoint + keys are set in Netlify.
+    // While false, products show Email/WhatsApp order buttons instead of "Pay Now".
+    enabled: false,
     endpoint: "/api/pay"
   }
 };

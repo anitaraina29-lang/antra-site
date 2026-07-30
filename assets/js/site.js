@@ -10,6 +10,25 @@
   var esc = function (s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
   var qs = function (k) { return new URLSearchParams(location.search).get(k); };
 
+  /* ---------- brand logo (SVG wordmark + lily) ---------- */
+  // If you drop the official logo at assets/img/logo.png, set USE_IMG = true.
+  var USE_IMG = true;
+  var LOGO = USE_IMG
+    ? '<img class="antra-logo" src="assets/img/logo.png" alt="Antra Botanicals">'
+    : '<svg class="antra-logo" viewBox="0 0 300 112" role="img" aria-label="Antra Botanicals" xmlns="http://www.w3.org/2000/svg">' +
+        '<text x="4" y="76" font-family="\'Dancing Script\',cursive" font-weight="600" font-size="88" fill="currentColor">antra</text>' +
+        '<text x="128" y="101" font-family="\'Jost\',sans-serif" font-size="15" letter-spacing="8" fill="currentColor">BOTANICALS</text>' +
+        '<g transform="translate(262,36)" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M0,6 C-8,-9 -5,-30 0,-37 C5,-30 8,-9 0,6 Z"/>' +
+          '<path d="M0,6 C-8,-9 -5,-30 0,-37 C5,-30 8,-9 0,6 Z" transform="rotate(60)"/>' +
+          '<path d="M0,6 C-8,-9 -5,-30 0,-37 C5,-30 8,-9 0,6 Z" transform="rotate(-60)"/>' +
+          '<path d="M0,6 C-7,-7 -5,-22 0,-27 C5,-22 7,-7 0,6 Z" transform="rotate(30)"/>' +
+          '<path d="M0,6 C-7,-7 -5,-22 0,-27 C5,-22 7,-7 0,6 Z" transform="rotate(-30)"/>' +
+          '<path d="M0,5 L0,-16 M0,5 L-7,-12 M0,5 L7,-12" stroke-width="1.5"/>' +
+          '<circle cx="0" cy="-17" r="1.6" fill="currentColor"/><circle cx="-7" cy="-13" r="1.6" fill="currentColor"/><circle cx="7" cy="-13" r="1.6" fill="currentColor"/>' +
+        '</g>' +
+      '</svg>';
+
   /* ---------- order links ---------- */
   function orderLinks(p) {
     var subject = "Order enquiry — Antra: " + p.name;
@@ -68,7 +87,7 @@
     if (!el) return;
     el.className = "site-header";
     el.innerHTML =
-      '<a class="brand-mark" href="index.html" aria-label="Antra home"><b>ANTRA</b></a>' +
+      '<a class="brand-mark" href="index.html" aria-label="Antra home">' + LOGO + '</a>' +
       '<div class="header-right">' +
         '<nav class="nav">' + nav(active) +
           '<a class="nav-cta" href="shop.html">Shop the Ritual</a>' +
@@ -132,7 +151,7 @@
       '<div class="wrap">' +
         '<div class="foot-grid">' +
           '<div class="foot-brand">' +
-            '<span class="brand-mark"><b>ANTRA</b></span>' +
+            '<span class="brand-mark">' + LOGO + '</span>' +
             '<p>We craft more than products—we channel ancient energy. 100% natural perfume oils & ritual skincare, blended in small batches to reawaken the goddess within.</p>' +
           '</div>' +
           '<div class="foot-col"><h4>Collections</h4>' +
@@ -433,4 +452,91 @@
     renderProduct();
     observeReveals();
   });
+})();
+
+/* =========================================================
+   PREMIUM 3D TILT — cards follow the cursor with subtle depth
+   (delegated so it works on dynamically-rendered grids too)
+   ========================================================= */
+(function () {
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var SEL = '.card, .ritual-card, .moon-card, .archetype';
+  var MAX = 10; // degrees
+  var last = null;
+
+  function reset(el) {
+    if (!el) return;
+    el.style.setProperty('--rx', '0deg');
+    el.style.setProperty('--ry', '0deg');
+  }
+
+  document.addEventListener('pointermove', function (e) {
+    var el = e.target.closest ? e.target.closest(SEL) : null;
+    if (last && last !== el) reset(last);
+    last = el;
+    if (!el) return;
+    var r = el.getBoundingClientRect();
+    var px = (e.clientX - r.left) / r.width - 0.5;   // -0.5 .. 0.5
+    var py = (e.clientY - r.top) / r.height - 0.5;
+    el.style.setProperty('--rx', (px * MAX).toFixed(2) + 'deg');
+    el.style.setProperty('--ry', (-py * MAX).toFixed(2) + 'deg');
+  }, { passive: true });
+
+  // reset when the cursor leaves the window entirely
+  document.addEventListener('pointerleave', function () { reset(last); last = null; }, true);
+  window.addEventListener('blur', function () { reset(last); last = null; });
+})();
+
+/* =========================================================
+   DELUXE — custom product cursor + glass-glare tracking
+   ========================================================= */
+(function () {
+  if (!window.matchMedia || !window.matchMedia('(pointer:fine)').matches) return;
+
+  var aura = document.createElement('div'); aura.className = 'cursor-aura';
+  var dot = document.createElement('div'); dot.className = 'cursor-dot';
+  document.body.appendChild(aura); document.body.appendChild(dot);
+
+  var mx = window.innerWidth / 2, my = window.innerHeight / 2;
+  var ax = mx, ay = my, hue = 40;
+  var HOVER = 'a,button,summary,input,textarea,select,.theme-toggle,.card,.card-link';
+
+  document.addEventListener('pointermove', function (e) {
+    mx = e.clientX; my = e.clientY;
+    dot.style.transform = 'translate(' + mx + 'px,' + my + 'px) translate(-50%,-50%)';
+    if (e.target.closest && e.target.closest(HOVER)) aura.classList.add('hover');
+    else aura.classList.remove('hover');
+    // glass glare position for the hovered card
+    var card = e.target.closest && e.target.closest('.card');
+    if (card) {
+      var r = card.getBoundingClientRect();
+      card.style.setProperty('--gx', ((e.clientX - r.left) / r.width * 100).toFixed(1) + '%');
+      card.style.setProperty('--gy', ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%');
+    }
+  }, { passive: true });
+
+  (function loop() {
+    ax += (mx - ax) * 0.16; ay += (my - ay) * 0.16; hue = (hue + 0.5) % 360;
+    aura.style.transform = 'translate(' + ax + 'px,' + ay + 'px) translate(-50%,-50%)';
+    aura.style.background = 'radial-gradient(circle, hsla(' + hue.toFixed(0) + ',75%,70%,.55), transparent 70%)';
+    requestAnimationFrame(loop);
+  })();
+
+  document.addEventListener('mouseleave', function () { dot.style.opacity = 0; aura.style.opacity = 0; });
+  document.addEventListener('mouseenter', function () { dot.style.opacity = 1; aura.style.opacity = 1; });
+})();
+
+/* colourful aurora background layer (all devices) */
+(function () {
+  var a = document.createElement('div');
+  a.className = 'antra-aurora';
+  a.setAttribute('aria-hidden', 'true');
+  document.addEventListener('DOMContentLoaded', function () {
+    document.body.insertBefore(a, document.body.firstChild);
+  });
+})();
+
+/* ensure the script logo font is ready before the header paints */
+(function () {
+  try { if (document.fonts && document.fonts.load) document.fonts.load("600 88px 'Dancing Script'"); } catch (e) {}
 })();
