@@ -764,7 +764,12 @@ body:has(.hero) .site-header:not(.scrolled) .brand-mark .antra-logo,
 body:has(.page-hero) .site-header:not(.scrolled) .brand-mark .antra-logo{ color:#f4eee5; }
 .antra-logo text{ dominant-baseline:auto; }
 
-/* official raster logo (has its own cream background) */
-img.antra-logo{ height:70px; width:auto; display:block; border-radius:8px; }
-.site-footer img.antra-logo{ height:88px; }
-@media (max-width:640px){ img.antra-logo{ height:56px; } }
+/* official logo (transparent background — blends into the page) */
+img.antra-logo{ height:72px; width:auto; display:block; }
+.site-footer img.antra-logo{ height:92px; }
+@media (max-width:640px){ img.antra-logo{ height:58px; } }
+/* night mode: render the green logo as clean white so it stays visible on dark */
+:root[data-theme="night"] img.antra-logo{ filter: brightness(0) invert(1); }
+/* over the dark hero image (day mode, header not scrolled): also make it light */
+body:has(.hero) .site-header:not(.scrolled) img.antra-logo,
+body:has(.page-hero) .site-header:not(.scrolled) img.antra-logo{ filter: brightness(0) invert(1); }
