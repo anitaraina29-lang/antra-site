@@ -14,11 +14,14 @@ exports.handler = async (event) => {
     return { statusCode: 405, body: "Method not allowed" };
   }
 
+  // PayU credentials — set PAY4U_KEY and PAY4U_SALT in Netlify env vars.
   const KEY = process.env.PAY4U_KEY;
   const SALT = process.env.PAY4U_SALT;
-  const ENDPOINT = process.env.PAY4U_ENDPOINT;
-  const SUCCESS_URL = process.env.SUCCESS_URL;
-  const FAILURE_URL = process.env.FAILURE_URL;
+  // Sensible defaults so only key+salt need to be configured.
+  // Live: https://secure.payu.in/_payment  ·  Test: https://test.payu.in/_payment
+  const ENDPOINT = process.env.PAY4U_ENDPOINT || "https://secure.payu.in/_payment";
+  const SUCCESS_URL = process.env.SUCCESS_URL || "https://antrabotanicals.com/payment-success";
+  const FAILURE_URL = process.env.FAILURE_URL || "https://antrabotanicals.com/payment-failure";
 
   const b = Object.fromEntries(new URLSearchParams(event.body || ""));
   const amount = String(b.amount || "").trim();
