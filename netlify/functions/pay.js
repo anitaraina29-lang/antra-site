@@ -29,6 +29,7 @@ exports.handler = async (event) => {
   const firstname = String(b.firstname || "Customer").trim();
   const email = String(b.email || "").trim();
   const phone = String(b.phone || "").trim();
+  const address = String(b.address || "").trim(); // shipping address (shown in PayU txn, used for Shiprocket)
 
   if (!amount || !email) {
     return { statusCode: 400, body: "amount and email are required" };
@@ -41,8 +42,11 @@ exports.handler = async (event) => {
     "", "", "", "", "", "", "", "", "", "", SALT].join("|");
   const hash = crypto.createHash("sha512").update(seq).digest("hex");
 
+  // address1 is NOT part of the PayU hash, so it can be sent as an extra field.
+  // It appears in the PayU transaction details — the owner uses it for Shiprocket.
   const fields = {
     key: KEY, txnid, amount, productinfo, firstname, email, phone,
+    address1: address,
     surl: SUCCESS_URL, furl: FAILURE_URL, hash,
   };
   const inputs = Object.entries(fields)
