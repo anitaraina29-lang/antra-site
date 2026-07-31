@@ -341,5 +341,22 @@ window.ANTRA_PRODUCTS = [
       ],
       zero: "Synthetic fragrance, parabens, artificial colour"
     }
+  },
+  {
+    /* TEMPORARY ₹1 TEST PRODUCT — hidden from shop (collection "test").
+       Open via checkout.html?id=test-ritual to test the full payment + Shiprocket flow.
+       REMOVE after testing. */
+    id: "test-ritual",
+    name: "Test Order",
+    collection: "test",
+    type: "Payment test",
+    price: 1,
+    size: "Test",
+    accent: "#9c7836",
+    image: "assets/img/moon-veil-1.jpg",
+    gallery: ["assets/img/moon-veil-1.jpg"],
+    eyebrow: "Internal test",
+    short: "Temporary ₹1 item to test checkout — not a real product.",
+    story: "Temporary ₹1 item used to verify the payment and shipping flow. This is not for sale."
   }
 ];
