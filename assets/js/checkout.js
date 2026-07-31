@@ -129,13 +129,16 @@
       var btn = document.getElementById("pay-btn");
       btn.disabled = true; btn.textContent = "Redirecting to secure payment…";
 
-      // POST to the backend which signs the request and forwards to Pay4U
+      // Order reference so the captured order can be matched to the PayU transaction
+      var orderRef = "ANTRA-" + Date.now();
+
+      // Build the PayU redirect form (backend signs + forwards)
       var post = document.createElement("form");
       post.method = "POST";
       post.action = (CFG.pay4u && CFG.pay4u.endpoint) || "/api/pay";
       var fields = {
         amount: t.grand,
-        productinfo: product.name + " x" + qty + " (" + (product.size || "") + ")",
+        productinfo: product.name + " x" + qty + " [" + orderRef + "]",
         firstname: name,
         email: email,
         phone: phone,
@@ -147,7 +150,27 @@
         post.appendChild(i);
       });
       document.body.appendChild(post);
-      post.submit();
+
+      // Capture the full order (incl. shipping address) to Netlify Forms so the
+      // owner receives it for Shiprocket fulfilment — THEN continue to PayU.
+      var sent = false;
+      function goToPayU() { if (sent) return; sent = true; post.submit(); }
+      var orderData = new URLSearchParams({
+        "form-name": "antra-orders",
+        "order-ref": orderRef,
+        product: product.name + " (" + (product.size || "") + ")",
+        qty: String(qty),
+        amount: String(t.grand),
+        name: name,
+        email: email,
+        phone: phone,
+        address: addr
+      });
+      try {
+        fetch("/", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: orderData.toString() })
+          .then(goToPayU, goToPayU);
+        setTimeout(goToPayU, 2500); // safety: never block the buyer
+      } catch (e) { goToPayU(); }
     });
   }
 

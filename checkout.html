@@ -66,6 +66,19 @@
 </style>
 </head>
 <body data-page="checkout">
+<!-- Netlify Forms: registers the order-capture form so submissions reach the owner (for Shiprocket). Hidden — the real submit is via JS in checkout.js. -->
+<form name="antra-orders" data-netlify="true" netlify-honeypot="bot-field" hidden>
+  <input type="text" name="bot-field">
+  <input type="text" name="order-ref">
+  <input type="text" name="product">
+  <input type="text" name="qty">
+  <input type="text" name="amount">
+  <input type="text" name="name">
+  <input type="email" name="email">
+  <input type="tel" name="phone">
+  <textarea name="address"></textarea>
+</form>
+
 <header id="site-header"></header>
 
 <main class="co-wrap">
