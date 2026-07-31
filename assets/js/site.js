@@ -460,9 +460,11 @@
    ========================================================= */
 (function () {
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // desktop / mouse only — skip entirely on touch (big perf win on mobile)
+  if (!window.matchMedia || !window.matchMedia('(pointer:fine)').matches) return;
   var SEL = '.card, .ritual-card, .moon-card, .archetype';
-  var MAX = 10; // degrees
-  var last = null;
+  var MAX = 9; // degrees
+  var last = null, pending = null, ticking = false;
 
   function reset(el) {
     if (!el) return;
@@ -470,19 +472,26 @@
     el.style.setProperty('--ry', '0deg');
   }
 
+  // throttle to one style write per animation frame (pointermove can fire 100s/sec)
   document.addEventListener('pointermove', function (e) {
     var el = e.target.closest ? e.target.closest(SEL) : null;
     if (last && last !== el) reset(last);
     last = el;
-    if (!el) return;
-    var r = el.getBoundingClientRect();
-    var px = (e.clientX - r.left) / r.width - 0.5;   // -0.5 .. 0.5
-    var py = (e.clientY - r.top) / r.height - 0.5;
-    el.style.setProperty('--rx', (px * MAX).toFixed(2) + 'deg');
-    el.style.setProperty('--ry', (-py * MAX).toFixed(2) + 'deg');
+    if (!el) { pending = null; return; }
+    pending = { el: el, x: e.clientX, y: e.clientY };
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function () {
+      ticking = false;
+      if (!pending) return;
+      var r = pending.el.getBoundingClientRect();
+      var px = (pending.x - r.left) / r.width - 0.5;
+      var py = (pending.y - r.top) / r.height - 0.5;
+      pending.el.style.setProperty('--rx', (px * MAX).toFixed(2) + 'deg');
+      pending.el.style.setProperty('--ry', (-py * MAX).toFixed(2) + 'deg');
+    });
   }, { passive: true });
 
-  // reset when the cursor leaves the window entirely
   document.addEventListener('pointerleave', function () { reset(last); last = null; }, true);
   window.addEventListener('blur', function () { reset(last); last = null; });
 })();
@@ -497,28 +506,40 @@
   var dot = document.createElement('div'); dot.className = 'cursor-dot';
   document.body.appendChild(aura); document.body.appendChild(dot);
 
+  // static aura colour set ONCE (no per-frame gradient repaint — that was the main jank source)
+  aura.style.background = 'radial-gradient(circle, rgba(201,168,106,.5), transparent 70%)';
+
   var mx = window.innerWidth / 2, my = window.innerHeight / 2;
-  var ax = mx, ay = my, hue = 40;
+  var ax = mx, ay = my;
   var HOVER = 'a,button,summary,input,textarea,select,.theme-toggle,.card,.card-link';
+  var glareTick = false, glare = null;
 
   document.addEventListener('pointermove', function (e) {
     mx = e.clientX; my = e.clientY;
     dot.style.transform = 'translate(' + mx + 'px,' + my + 'px) translate(-50%,-50%)';
     if (e.target.closest && e.target.closest(HOVER)) aura.classList.add('hover');
     else aura.classList.remove('hover');
-    // glass glare position for the hovered card
+    // glass glare — throttled to one write per frame
     var card = e.target.closest && e.target.closest('.card');
     if (card) {
-      var r = card.getBoundingClientRect();
-      card.style.setProperty('--gx', ((e.clientX - r.left) / r.width * 100).toFixed(1) + '%');
-      card.style.setProperty('--gy', ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%');
+      glare = { card: card, x: e.clientX, y: e.clientY };
+      if (!glareTick) {
+        glareTick = true;
+        requestAnimationFrame(function () {
+          glareTick = false;
+          if (!glare) return;
+          var r = glare.card.getBoundingClientRect();
+          glare.card.style.setProperty('--gx', ((glare.x - r.left) / r.width * 100).toFixed(1) + '%');
+          glare.card.style.setProperty('--gy', ((glare.y - r.top) / r.height * 100).toFixed(1) + '%');
+        });
+      }
     }
   }, { passive: true });
 
+  // position-only loop (compositor-cheap; no paint)
   (function loop() {
-    ax += (mx - ax) * 0.16; ay += (my - ay) * 0.16; hue = (hue + 0.5) % 360;
+    ax += (mx - ax) * 0.18; ay += (my - ay) * 0.18;
     aura.style.transform = 'translate(' + ax + 'px,' + ay + 'px) translate(-50%,-50%)';
-    aura.style.background = 'radial-gradient(circle, hsla(' + hue.toFixed(0) + ',75%,70%,.55), transparent 70%)';
     requestAnimationFrame(loop);
   })();
 

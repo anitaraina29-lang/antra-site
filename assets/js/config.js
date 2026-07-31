@@ -8,7 +8,7 @@ window.ANTRA_CONFIG = {
   email: "antra.fem@gmail.com",
 
   // Instagram handle WITHOUT the @  (set to "" to hide the Instagram links)
-  instagram: "antra.fem",
+  instagram: "antra.botanicals",
 
   // WhatsApp number in international format, digits only, e.g. "919876543210".
   // Leave "" to hide the WhatsApp order button (the Email order button always shows).
