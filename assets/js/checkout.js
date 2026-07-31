@@ -26,7 +26,7 @@
 
   function totals() {
     var sub = product.price * qty;
-    var ship = (product.id === "test-ritual") ? 0 : (sub >= SHIP_FREE_OVER ? 0 : SHIP_FLAT);
+    var ship = sub >= SHIP_FREE_OVER ? 0 : SHIP_FLAT;
     return { sub: sub, ship: ship, grand: sub + ship };
   }
 
