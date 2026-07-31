@@ -459,6 +459,7 @@
    (delegated so it works on dynamically-rendered grids too)
    ========================================================= */
 (function () {
+  return; // 3D mouse-tilt DISABLED for performance (was laggy on low-end laptops)
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   // desktop / mouse only — skip entirely on touch (big perf win on mobile)
   if (!window.matchMedia || !window.matchMedia('(pointer:fine)').matches) return;
@@ -500,6 +501,7 @@
    DELUXE — custom product cursor + glass-glare tracking
    ========================================================= */
 (function () {
+  return; // custom cursor DISABLED for performance (constant rAF was laggy); native cursor restored
   if (!window.matchMedia || !window.matchMedia('(pointer:fine)').matches) return;
 
   var aura = document.createElement('div'); aura.className = 'cursor-aura';
