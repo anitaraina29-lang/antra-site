@@ -12,7 +12,7 @@ window.ANTRA_CONFIG = {
 
   // WhatsApp number in international format, digits only, e.g. "919876543210".
   // Leave "" to hide the WhatsApp order button (the Email order button always shows).
-  whatsapp: "",
+  whatsapp: "919818521416",
 
   // Where the brand ships from / is based (shown in footer). Edit as needed.
   location: "Handcrafted in small batches • India",
