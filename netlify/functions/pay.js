@@ -30,6 +30,9 @@ exports.handler = async (event) => {
   const email = String(b.email || "").trim();
   const phone = String(b.phone || "").trim();
   const address = String(b.address || "").trim(); // shipping address (shown in PayU txn, used for Shiprocket)
+  const city = String(b.city || "").trim();
+  const state = String(b.state || "").trim();
+  const pincode = String(b.pincode || "").trim();
 
   if (!amount || !email) {
     return { statusCode: 400, body: "amount and email are required" };
@@ -44,9 +47,11 @@ exports.handler = async (event) => {
 
   // address1 is NOT part of the PayU hash, so it can be sent as an extra field.
   // It appears in the PayU transaction details — the owner uses it for Shiprocket.
+  // Address fields are NOT part of the PayU hash, so they can be sent as extras.
+  // They appear in the PayU transaction details — the owner uses them for Shiprocket.
   const fields = {
     key: KEY, txnid, amount, productinfo, firstname, email, phone,
-    address1: address,
+    address1: address, city: city, state: state, zipcode: pincode, country: "India",
     surl: SUCCESS_URL, furl: FAILURE_URL, hash,
   };
   const inputs = Object.entries(fields)

@@ -48,10 +48,21 @@
               '<input name="phone" type="tel" autocomplete="tel" placeholder="10-digit mobile">' +
               '<div class="err">Please enter a valid 10-digit number.</div></div>' +
           '</div>' +
-          '<div class="fld" id="f-addr"><label>Shipping address</label>' +
-            '<textarea name="address" autocomplete="street-address" placeholder="House / street, area, city, state, PIN"></textarea>' +
-            '<div class="err">Please enter your shipping address.</div></div>' +
-          '<div class="notice">You will be redirected to Pay4U’s secure gateway to complete payment. ' +
+          '<div class="fld" id="f-addr"><label>Address (house, street, area)</label>' +
+            '<textarea name="address" autocomplete="street-address" placeholder="House no., street, area, landmark"></textarea>' +
+            '<div class="err">Please enter your address.</div></div>' +
+          '<div class="row2">' +
+            '<div class="fld" id="f-city"><label>City</label>' +
+              '<input name="city" autocomplete="address-level2" placeholder="City">' +
+              '<div class="err">Please enter your city.</div></div>' +
+            '<div class="fld" id="f-state"><label>State</label>' +
+              '<input name="state" autocomplete="address-level1" placeholder="State">' +
+              '<div class="err">Please enter your state.</div></div>' +
+          '</div>' +
+          '<div class="fld" id="f-pin"><label>PIN code</label>' +
+            '<input name="pincode" inputmode="numeric" autocomplete="postal-code" placeholder="6-digit PIN code">' +
+            '<div class="err">Please enter a valid 6-digit PIN code.</div></div>' +
+          '<div class="notice">You will be redirected to PayU’s secure gateway to complete payment. ' +
             'Antra never sees or stores your card / UPI details.</div>' +
         '</form>' +
 
@@ -110,17 +121,26 @@
       var email = form.email.value.trim();
       var phone = form.phone.value.replace(/\D/g, "");
       var addr = form.address.value.trim();
+      var city = form.city.value.trim();
+      var state = form.state.value.trim();
+      var pincode = form.pincode.value.replace(/\D/g, "");
 
       var okName = name.length >= 2;
       var okEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       var okPhone = phone.length === 10;
-      var okAddr = addr.length >= 8;
+      var okAddr = addr.length >= 6;
+      var okCity = city.length >= 2;
+      var okState = state.length >= 2;
+      var okPin = pincode.length === 6;
 
       setInvalid("f-name", !okName);
       setInvalid("f-email", !okEmail);
       setInvalid("f-phone", !okPhone);
       setInvalid("f-addr", !okAddr);
-      if (!(okName && okEmail && okPhone && okAddr)) {
+      setInvalid("f-city", !okCity);
+      setInvalid("f-state", !okState);
+      setInvalid("f-pin", !okPin);
+      if (!(okName && okEmail && okPhone && okAddr && okCity && okState && okPin)) {
         form.querySelector(".invalid input, .invalid textarea").focus();
         return;
       }
@@ -142,7 +162,10 @@
         firstname: name,
         email: email,
         phone: phone,
-        address: addr
+        address: addr,
+        city: city,
+        state: state,
+        pincode: pincode
       };
       Object.keys(fields).forEach(function (k) {
         var i = document.createElement("input");
@@ -164,7 +187,10 @@
         name: name,
         email: email,
         phone: phone,
-        address: addr
+        address: addr,
+        city: city,
+        state: state,
+        pincode: pincode
       });
       try {
         fetch("/", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: orderData.toString() })
