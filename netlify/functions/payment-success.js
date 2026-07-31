@@ -1,95 +1,101 @@
 /* ANTRA — PayU success return (Netlify serverless function).
-   1) Verifies PayU's reply hash before showing success (blocks fake success URLs).
-   2) On a verified success, auto-creates the order in Shiprocket (best-effort).
-      Shiprocket runs ONLY if SHIPROCKET_EMAIL/PASSWORD/PICKUP env vars are set and
-      the shipping address is present. Any failure is swallowed — the buyer always
-      sees the success page, and the order stays in PayU for manual fulfilment. */
+   Flow on the surl redirect from PayU:
+   1) Show the buyer a friendly "Thank you" whenever status=success (PayU only
+      redirects here on a genuine success).
+   2) Confirm the payment SERVER-TO-SERVER via PayU's Verify Payment API
+      (reliable, un-fakeable) — and only then auto-create the order in Shiprocket.
+   Everything is best-effort: any failure is swallowed and the order still sits in
+   PayU (with the shipping address) for manual fulfilment. */
 const crypto = require("crypto");
 
-async function createShiprocketOrder(b) {
+function timeoutSignal(ms) { const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; }
+
+// Server-to-server confirmation with PayU (does not rely on the response hash).
+async function verifyWithPayU(txnid) {
+  const KEY = process.env.PAY4U_KEY, SALT = process.env.PAY4U_SALT;
+  if (!KEY || !SALT || !txnid) return false;
+  const command = "verify_payment";
+  const hash = crypto.createHash("sha512").update(KEY + "|" + command + "|" + txnid + "|" + SALT).digest("hex");
+  const body = new URLSearchParams({ key: KEY, command, var1: txnid, hash }).toString();
+  const res = await fetch("https://info.payu.in/merchant/postservice.php?form=2", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+    signal: timeoutSignal(8000),
+  });
+  const j = await res.json();
+  const td = j && j.transaction_details && j.transaction_details[txnid];
+  const ok = !!(td && String(td.status).toLowerCase() === "success");
+  console.log("PAYU_VERIFY", JSON.stringify({ txnid, ok, tdStatus: td && td.status }));
+  return { ok, td };
+}
+
+async function createShiprocketOrder(b, td) {
   const EMAIL = process.env.SHIPROCKET_EMAIL;
   const PASSWORD = process.env.SHIPROCKET_PASSWORD;
   const PICKUP = process.env.SHIPROCKET_PICKUP;
-  const address = (b.address1 || "").trim();
-  // Need credentials + a usable address, else skip (owner ships manually from PayU).
-  if (!EMAIL || !PASSWORD || !PICKUP || !address || !b.zipcode) return { skipped: true };
+  // Prefer address echoed in the redirect; fall back to PayU verify details.
+  const address = (b.address1 || (td && td.address1) || "").trim();
+  const pincode = (b.zipcode || (td && td.zipcode) || "").trim();
+  if (!EMAIL || !PASSWORD || !PICKUP || !address || !pincode) {
+    console.log("SHIPROCKET_SKIP", JSON.stringify({ hasCreds: !!(EMAIL && PASSWORD && PICKUP), hasAddress: !!address, hasPincode: !!pincode }));
+    return { skipped: true };
+  }
 
-  const withTimeout = (ms) => { const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; };
-
-  // 1) auth
   const authRes = await fetch("https://apiv2.shiprocket.in/v1/external/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
-    signal: withTimeout(8000),
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: EMAIL, password: PASSWORD }), signal: timeoutSignal(8000),
   });
   const auth = await authRes.json();
-  if (!auth || !auth.token) return { error: "auth failed" };
+  if (!auth || !auth.token) { console.log("SHIPROCKET_AUTH_FAIL"); return { error: "auth" }; }
 
-  // order date "YYYY-MM-DD HH:mm"
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
+  const d = new Date(); const pad = (n) => String(n).padStart(2, "0");
   const orderDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-
-  // 2) create ad-hoc order
   const payload = {
     order_id: b.txnid || ("ANTRA" + Date.now()),
     order_date: orderDate,
     pickup_location: PICKUP,
-    billing_customer_name: b.firstname || "Customer",
+    billing_customer_name: b.firstname || (td && td.firstname) || "Customer",
     billing_last_name: "",
     billing_address: address,
-    billing_city: b.city || "",
-    billing_pincode: b.zipcode || "",
-    billing_state: b.state || "",
+    billing_city: b.city || (td && td.city) || "",
+    billing_pincode: pincode,
+    billing_state: b.state || (td && td.state) || "",
     billing_country: "India",
-    billing_email: b.email || "",
-    billing_phone: b.phone || "",
+    billing_email: b.email || (td && td.email) || "",
+    billing_phone: b.phone || (td && td.phone) || "",
     shipping_is_billing: true,
-    order_items: [{ name: b.productinfo || "Antra order", sku: "ANTRA-" + (b.txnid || "SKU"), units: 1, selling_price: b.amount || "0" }],
+    order_items: [{ name: b.productinfo || "Antra order", sku: "ANTRA-" + (b.txnid || "SKU"), units: 1, selling_price: b.amount || (td && td.amount) || "0" }],
     payment_method: "Prepaid",
-    sub_total: b.amount || "0",
-    length: 12, breadth: 10, height: 8, weight: 0.3, // defaults — adjust per parcel in Shiprocket before shipping
+    sub_total: b.amount || (td && td.amount) || "0",
+    length: 12, breadth: 10, height: 8, weight: 0.3,
   };
   const createRes = await fetch("https://apiv2.shiprocket.in/v1/external/orders/create/adhoc", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: "Bearer " + auth.token },
-    body: JSON.stringify(payload),
-    signal: withTimeout(8000),
+    body: JSON.stringify(payload), signal: timeoutSignal(8000),
   });
-  return await createRes.json();
+  const result = await createRes.json();
+  console.log("SHIPROCKET_CREATE", JSON.stringify({ order_id: result && result.order_id, status: result && result.status, message: result && result.message }));
+  return result;
 }
 
 exports.handler = async (event) => {
-  const SALT = process.env.PAY4U_SALT;
-  const KEY = process.env.PAY4U_KEY;
   const b = Object.fromEntries(new URLSearchParams(event.body || ""));
-
-  // PayU reverse hash. If additionalCharges is present it is prepended.
-  // Base (no additional charges): salt|status|+10 empties+|email|firstname|productinfo|amount|txnid|key
   const status = String(b.status || "").toLowerCase();
-  let hashOk = false;
-  try {
-    const tail = [SALT, b.status, "", "", "", "", "", "", "", "", "",
-      b.email, b.firstname, b.productinfo, b.amount, b.txnid, KEY];
-    const seq = (b.additionalCharges ? [b.additionalCharges].concat(tail) : tail).join("|");
-    const expected = crypto.createHash("sha512").update(seq).digest("hex");
-    hashOk = !!b.hash && expected.toLowerCase() === String(b.hash).toLowerCase();
-    // Diagnostics (visible in Netlify function logs) to perfect the hash if it mismatches.
-    console.log("PAYU_RETURN", JSON.stringify({
-      status, hashOk, recvHash: String(b.hash || "").slice(0, 16),
-      expHash: expected.slice(0, 16), amount: b.amount, txnid: b.txnid,
-      productinfo: b.productinfo, hasAddlCharges: !!b.additionalCharges,
-    }));
-  } catch (e) { hashOk = false; }
+  const paid = status === "success"; // PayU redirects to surl only on success
 
-  // PayU redirects here (surl) ONLY on a genuine success, so treat status=success
-  // as paid for the buyer's view. Auto-create in Shiprocket only when the hash also
-  // verifies (tamper-safe); otherwise the owner ships manually from PayU.
-  const paid = status === "success";
-  const verified = paid; // customer-facing: don't scare a real payer over a hash quirk
-  if (paid && hashOk) {
-    try { await createShiprocketOrder(b); } catch (e) { /* silent — manual fallback via PayU */ }
+  console.log("PAYU_RETURN", JSON.stringify({
+    status, txnid: b.txnid, amount: b.amount, productinfo: b.productinfo,
+    hasAddress: !!b.address1, city: b.city, zipcode: b.zipcode,
+  }));
+
+  // Confirm with PayU server-to-server, then auto-create the Shiprocket order.
+  if (paid) {
+    try {
+      const v = await verifyWithPayU(b.txnid);
+      if (v && v.ok) { await createShiprocketOrder(b, v.td); }
+    } catch (e) { console.log("POST_PAY_ERROR", String(e)); }
   }
 
   const page = (title, msg, tone) => `<!doctype html><meta charset="utf-8">
@@ -104,9 +110,9 @@ exports.handler = async (event) => {
           text-decoration:none;padding:12px 26px;border-radius:10px">Back to Antra</a>
       </div></body>`;
 
-  const body = verified
+  const body = paid
     ? page("Thank you", "Your Antra order is confirmed. We’ll begin hand-blending your ritual and ship it soon.", "✅")
-    : page("Payment could not be verified", "If money was deducted, it will be refunded automatically. Please contact us before re-ordering.", "⚠️");
+    : page("Payment not completed", "No confirmed payment was found. If money was deducted it will be refunded automatically.", "⚠️");
 
   return { statusCode: 200, headers: { "Content-Type": "text/html" }, body };
 };
