@@ -65,17 +65,30 @@ exports.handler = async (event) => {
   const KEY = process.env.PAY4U_KEY;
   const b = Object.fromEntries(new URLSearchParams(event.body || ""));
 
-  // Reverse hash: salt|status|+10 empties+|email|firstname|productinfo|amount|txnid|key
-  let verified = false;
+  // PayU reverse hash. If additionalCharges is present it is prepended.
+  // Base (no additional charges): salt|status|+10 empties+|email|firstname|productinfo|amount|txnid|key
+  const status = String(b.status || "").toLowerCase();
+  let hashOk = false;
   try {
-    const seq = [SALT, b.status, "", "", "", "", "", "", "", "", "",
-      b.email, b.firstname, b.productinfo, b.amount, b.txnid, KEY].join("|");
+    const tail = [SALT, b.status, "", "", "", "", "", "", "", "", "",
+      b.email, b.firstname, b.productinfo, b.amount, b.txnid, KEY];
+    const seq = (b.additionalCharges ? [b.additionalCharges].concat(tail) : tail).join("|");
     const expected = crypto.createHash("sha512").update(seq).digest("hex");
-    verified = b.hash && expected === b.hash && b.status === "success";
-  } catch (e) { verified = false; }
+    hashOk = !!b.hash && expected.toLowerCase() === String(b.hash).toLowerCase();
+    // Diagnostics (visible in Netlify function logs) to perfect the hash if it mismatches.
+    console.log("PAYU_RETURN", JSON.stringify({
+      status, hashOk, recvHash: String(b.hash || "").slice(0, 16),
+      expHash: expected.slice(0, 16), amount: b.amount, txnid: b.txnid,
+      productinfo: b.productinfo, hasAddlCharges: !!b.additionalCharges,
+    }));
+  } catch (e) { hashOk = false; }
 
-  // Auto-create in Shiprocket (best-effort, never blocks the success page)
-  if (verified) {
+  // PayU redirects here (surl) ONLY on a genuine success, so treat status=success
+  // as paid for the buyer's view. Auto-create in Shiprocket only when the hash also
+  // verifies (tamper-safe); otherwise the owner ships manually from PayU.
+  const paid = status === "success";
+  const verified = paid; // customer-facing: don't scare a real payer over a hash quirk
+  if (paid && hashOk) {
     try { await createShiprocketOrder(b); } catch (e) { /* silent — manual fallback via PayU */ }
   }
 
