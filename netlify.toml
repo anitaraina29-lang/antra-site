@@ -18,3 +18,29 @@
   from = "/payment-failure"
   to = "/.netlify/functions/payment-failure"
   status = 200
+
+# --- Old Shopify URLs → new site (so old links / bookmarks / Google results don't 404) ---
+[[redirects]]
+  from = "/collections/frontpage"
+  to = "/shop.html"
+  status = 301
+[[redirects]]
+  from = "/collections/*"
+  to = "/shop.html"
+  status = 301
+[[redirects]]
+  from = "/products/*"
+  to = "/shop.html"
+  status = 301
+[[redirects]]
+  from = "/pages/*"
+  to = "/"
+  status = 301
+[[redirects]]
+  from = "/cart"
+  to = "/shop.html"
+  status = 301
+[[redirects]]
+  from = "/account/*"
+  to = "/"
+  status = 301
