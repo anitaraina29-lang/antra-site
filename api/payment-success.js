@@ -113,8 +113,8 @@ async function sendOrderEmails(b, td, verified) {
   if (verified && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     const custHtml =
       `<div style="max-width:520px;margin:0 auto;font-family:Georgia,'Times New Roman',serif;color:#2a2320;background:#fdfaf5;border:1px solid #e7ddca;border-radius:12px;overflow:hidden">
-        <div style="background:#0c0a0f;padding:24px;text-align:center">
-          <img src="${logo}" alt="Antra Botanicals" style="height:52px;max-width:80%">
+        <div style="background:#efe6d7;padding:22px;text-align:center;border-bottom:1px solid #e2d6bf">
+          <img src="${logo}" alt="Antra Botanicals" style="height:58px;max-width:80%">
         </div>
         <div style="padding:28px">
           <h1 style="font-size:22px;color:#9c7836;margin:0 0 8px;font-weight:normal">Thank you, ${name} ✨</h1>
