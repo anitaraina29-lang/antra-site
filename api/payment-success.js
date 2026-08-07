@@ -51,9 +51,13 @@ async function createShiprocketOrder(b, td) {
 }
 
 module.exports = async function handler(req, res) {
-  const b = (req.body && typeof req.body === "object")
+  // PayU normally returns a POST body, but a redirect hop can turn it into a GET with
+  // query params — accept BOTH so the Thank-you page still renders either way.
+  const q = (req.query && typeof req.query === "object") ? req.query : {};
+  const bodyObj = (req.body && typeof req.body === "object")
     ? req.body
     : Object.fromEntries(new URLSearchParams(typeof req.body === "string" ? req.body : ""));
+  const b = Object.assign({}, q, bodyObj);
   const status = String(b.status || "").toLowerCase();
   const paid = status === "success";
 

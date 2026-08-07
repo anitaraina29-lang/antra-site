@@ -11,8 +11,10 @@ module.exports = function handler(req, res) {
   const KEY = process.env.PAY4U_KEY;
   const SALT = process.env.PAY4U_SALT;
   const ENDPOINT = process.env.PAY4U_ENDPOINT || "https://secure.payu.in/_payment";
-  const SUCCESS_URL = process.env.SUCCESS_URL || "https://antrabotanicals.com/payment-success";
-  const FAILURE_URL = process.env.FAILURE_URL || "https://antrabotanicals.com/payment-failure";
+  // NOTE: must be the PRIMARY host (www) — the apex antrabotanicals.com issues a 308
+  // redirect to www, and PayU's return POST to surl/furl can break across that hop.
+  const SUCCESS_URL = process.env.SUCCESS_URL || "https://www.antrabotanicals.com/payment-success";
+  const FAILURE_URL = process.env.FAILURE_URL || "https://www.antrabotanicals.com/payment-failure";
 
   // Vercel parses urlencoded/json bodies into req.body; fall back to raw parse.
   const b = (req.body && typeof req.body === "object")
