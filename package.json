@@ -1,0 +1,9 @@
+{
+  "name": "antra-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Antra Botanicals static site + Vercel serverless payment/email functions",
+  "dependencies": {
+    "nodemailer": "^6.9.0"
+  }
+}

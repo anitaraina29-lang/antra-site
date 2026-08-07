@@ -3,6 +3,7 @@
    Verify API, then auto-create the Shiprocket order. Best-effort; never blocks the page.
    Mirror of netlify/functions/payment-success.js. */
 const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 
 function timeoutSignal(ms) { const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; }
 
@@ -50,26 +51,35 @@ async function createShiprocketOrder(b, td) {
   console.log("SHIPROCKET_CREATE", JSON.stringify({ order_id: result && result.order_id, status: result && result.status }));
 }
 
-// ---- Email (Resend) — sends a customer confirmation + owner notification ----
-async function sendEmail(to, subject, html) {
-  const KEY = process.env.RESEND_API_KEY;
-  const FROM = process.env.ORDER_FROM || "Antra Botanicals <orders@antrabotanicals.com>";
-  const REPLY = process.env.ORDER_REPLY_TO || "antra.fem@gmail.com";
-  if (!KEY || !to) { console.log("EMAIL_SKIP", to || "(no-key/to)"); return; }
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: "Bearer " + KEY },
-    body: JSON.stringify({ from: FROM, to: [to], reply_to: REPLY, subject, html }),
-    signal: timeoutSignal(8000),
+// ---- Email (direct Gmail SMTP) — customer confirmation + owner notification.
+//   Uses the owner's Gmail + a Google "App Password" (env GMAIL_USER / GMAIL_APP_PASSWORD).
+//   No domain/DNS needed; mail is sent straight from antra.fem@gmail.com.
+let _transporter = null;
+function transporter() {
+  if (_transporter) return _transporter;
+  const USER = process.env.GMAIL_USER;
+  const PASS = (process.env.GMAIL_APP_PASSWORD || "").replace(/\s/g, ""); // Google shows it with spaces
+  if (!USER || !PASS) return null;
+  _transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com", port: 465, secure: true,
+    auth: { user: USER, pass: PASS },
+    connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 8000,
   });
-  const j = await r.json().catch(() => ({}));
-  console.log("EMAIL_SENT", to, r.status, JSON.stringify(j).slice(0, 160));
+  return _transporter;
+}
+async function sendEmail(to, subject, html) {
+  const USER = process.env.GMAIL_USER;
+  const t = transporter();
+  if (!t || !to) { console.log("EMAIL_SKIP", to || "(no-creds/to)"); return; }
+  const FROM = process.env.ORDER_FROM || ('"Antra Botanicals" <' + USER + '>');
+  const info = await t.sendMail({ from: FROM, to, replyTo: USER, subject, html });
+  console.log("EMAIL_SENT", to, info && info.messageId);
 }
 
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
 async function sendOrderEmails(b, td, verified) {
-  const OWNER = process.env.OWNER_EMAIL || "antra.fem@gmail.com";
+  const OWNER = process.env.OWNER_EMAIL || process.env.GMAIL_USER || "antra.fem@gmail.com";
   const pick = (k) => esc(b[k] || (td && td[k]) || "");
   const name = pick("firstname") || "Customer";
   const email = (b.email || (td && td.email) || "").trim();
