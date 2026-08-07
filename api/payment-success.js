@@ -50,6 +50,82 @@ async function createShiprocketOrder(b, td) {
   console.log("SHIPROCKET_CREATE", JSON.stringify({ order_id: result && result.order_id, status: result && result.status }));
 }
 
+// ---- Email (Resend) — sends a customer confirmation + owner notification ----
+async function sendEmail(to, subject, html) {
+  const KEY = process.env.RESEND_API_KEY;
+  const FROM = process.env.ORDER_FROM || "Antra Botanicals <orders@antrabotanicals.com>";
+  const REPLY = process.env.ORDER_REPLY_TO || "antra.fem@gmail.com";
+  if (!KEY || !to) { console.log("EMAIL_SKIP", to || "(no-key/to)"); return; }
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + KEY },
+    body: JSON.stringify({ from: FROM, to: [to], reply_to: REPLY, subject, html }),
+    signal: timeoutSignal(8000),
+  });
+  const j = await r.json().catch(() => ({}));
+  console.log("EMAIL_SENT", to, r.status, JSON.stringify(j).slice(0, 160));
+}
+
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+async function sendOrderEmails(b, td, verified) {
+  const OWNER = process.env.OWNER_EMAIL || "antra.fem@gmail.com";
+  const pick = (k) => esc(b[k] || (td && td[k]) || "");
+  const name = pick("firstname") || "Customer";
+  const email = (b.email || (td && td.email) || "").trim();
+  const phone = pick("phone");
+  const amount = pick("amount");
+  const product = pick("productinfo") || "Antra order";
+  const fullAddr = [pick("address1"), pick("city"), pick("state"), pick("zipcode")].filter(Boolean).join(", ");
+  const txnid = pick("txnid");
+  const logo = "https://www.antrabotanicals.com/assets/img/logo.png";
+
+  // ----- owner notification (always, so no order is missed) -----
+  const row = (k, v) => `<tr><td style="padding:7px 0;color:#8a8175;width:34%">${k}</td><td style="padding:7px 0;color:#222">${v || "—"}</td></tr>`;
+  const ownerHtml =
+    `<div style="max-width:580px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;border:1px solid #e2ddd2;border-radius:10px;overflow:hidden">
+      <div style="background:${verified ? "#1a7a45" : "#b26a00"};color:#fff;padding:16px 22px">
+        <div style="font-size:18px;font-weight:bold">${verified ? "🛍️ New Antra order received" : "⚠️ Payment received — verify in PayU"}</div>
+      </div>
+      <div style="padding:22px">
+        ${verified ? "" : `<p style="color:#b26a00;margin:0 0 14px">Auto-verification did not confirm this payment. Check the PayU dashboard before shipping.</p>`}
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          ${row("Customer", name)}${row("Email", esc(email))}${row("Phone", phone)}
+          ${row("Product", product)}${row("Amount", "₹" + amount)}
+          ${row("Ship to", fullAddr)}${row("Order ref", txnid)}
+        </table>
+      </div>
+      <div style="background:#efe6d7;padding:12px;text-align:center;color:#8a8175;font-size:11px">Antra Botanicals · order notification</div>
+    </div>`;
+  await sendEmail(OWNER, (verified ? "🛍️ New order — ₹" : "⚠️ Payment (verify) — ₹") + amount + " — " + name, ownerHtml);
+
+  // ----- customer confirmation (only when server-verified, to avoid spoofed sends) -----
+  if (verified && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    const custHtml =
+      `<div style="max-width:520px;margin:0 auto;font-family:Georgia,'Times New Roman',serif;color:#2a2320;background:#fdfaf5;border:1px solid #e7ddca;border-radius:12px;overflow:hidden">
+        <div style="background:#0c0a0f;padding:24px;text-align:center">
+          <img src="${logo}" alt="Antra Botanicals" style="height:52px;max-width:80%">
+        </div>
+        <div style="padding:28px">
+          <h1 style="font-size:22px;color:#9c7836;margin:0 0 8px;font-weight:normal">Thank you, ${name} ✨</h1>
+          <p style="line-height:1.65;color:#514a41;margin:0 0 16px">Your Antra order is confirmed. We’ll begin hand-blending your ritual and ship it to you soon.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px">
+            <tr><td style="padding:6px 0;color:#8a8175">Order</td><td style="padding:6px 0;text-align:right">${product}</td></tr>
+            <tr><td style="padding:6px 0;color:#8a8175">Amount paid</td><td style="padding:6px 0;text-align:right;font-weight:bold">₹${amount}</td></tr>
+            <tr><td style="padding:6px 0;color:#8a8175">Order ref</td><td style="padding:6px 0;text-align:right">${txnid}</td></tr>
+            <tr><td style="padding:6px 0;color:#8a8175;vertical-align:top">Shipping to</td><td style="padding:6px 0;text-align:right">${fullAddr}</td></tr>
+          </table>
+          <p style="line-height:1.6;color:#514a41;font-size:13.5px;margin:0">Any questions? Just reply to this email and we’ll help.</p>
+          <div style="text-align:center;margin-top:24px">
+            <a href="https://www.antrabotanicals.com" style="display:inline-block;background:#c9a86a;color:#1a1208;text-decoration:none;padding:11px 28px;border-radius:8px;font-family:Arial,sans-serif;font-size:14px">Visit Antra</a>
+          </div>
+        </div>
+        <div style="background:#efe6d7;padding:14px;text-align:center;color:#8a8175;font-size:11px;font-family:Arial,sans-serif">Antra Botanicals · Handcrafted in small batches · India</div>
+      </div>`;
+    await sendEmail(email, "Your Antra order is confirmed ✨", custHtml);
+  }
+}
+
 module.exports = async function handler(req, res) {
   // PayU normally returns a POST body, but a redirect hop can turn it into a GET with
   // query params — accept BOTH so the Thank-you page still renders either way.
@@ -62,8 +138,13 @@ module.exports = async function handler(req, res) {
   const paid = status === "success";
 
   if (paid) {
-    try { const v = await verifyWithPayU(b.txnid); if (v.ok) await createShiprocketOrder(b, v.td); }
-    catch (e) { console.log("POST_PAY_ERROR", String(e)); }
+    let verified = false, td = null;
+    try { const v = await verifyWithPayU(b.txnid); verified = v.ok; td = v.td; }
+    catch (e) { console.log("VERIFY_ERROR", String(e)); }
+    try { if (verified) await createShiprocketOrder(b, td); }
+    catch (e) { console.log("SHIPROCKET_ERROR", String(e)); }
+    try { await sendOrderEmails(b, td, verified); }
+    catch (e) { console.log("EMAIL_ERROR", String(e)); }
   }
 
   const page = (title, msg, tone) => `<!doctype html><meta charset="utf-8">
