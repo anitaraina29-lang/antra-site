@@ -183,7 +183,7 @@ window.ANTRA_PRODUCTS = [
     name: "Luna Celeste Face Oil",
     collection: "grove",
     type: "Face Oil • Sensitive Skin",
-    price: 950,
+    price: 1000,
     size: "15 mL",
     accent: "#d2a6ad",
     image: "assets/img/luna-1.jpg",
