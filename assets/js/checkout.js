@@ -62,7 +62,7 @@
           '<div class="fld" id="f-pin"><label>PIN code</label>' +
             '<input name="pincode" inputmode="numeric" autocomplete="postal-code" placeholder="6-digit PIN code">' +
             '<div class="err">Please enter a valid 6-digit PIN code.</div></div>' +
-          '<div class="notice">You will be redirected to PayU’s secure gateway to complete payment. ' +
+          '<div class="notice">You will be redirected to our secure payment gateway to complete payment. ' +
             'Antra never sees or stores your card / UPI details.</div>' +
         '</form>' +
 
@@ -85,7 +85,7 @@
           '<button type="submit" form="pay-form" class="pay-btn" id="pay-btn">Pay ' + fmt(t.grand) + ' securely</button>' +
           '<div class="secure">' +
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>' +
-            '<span>256-bit encrypted payment via Pay4U</span></div>' +
+            '<span>256-bit encrypted secure payment</span></div>' +
           '<div class="pay-methods"><span>UPI</span><span>Cards</span><span>Net Banking</span><span>Wallets</span></div>' +
         '</div>' +
       '</div>';
@@ -173,30 +173,9 @@
         post.appendChild(i);
       });
       document.body.appendChild(post);
-
-      // Capture the full order (incl. shipping address) to Netlify Forms so the
-      // owner receives it for Shiprocket fulfilment — THEN continue to PayU.
-      var sent = false;
-      function goToPayU() { if (sent) return; sent = true; post.submit(); }
-      var orderData = new URLSearchParams({
-        "form-name": "antra-orders",
-        "order-ref": orderRef,
-        product: product.name + " (" + (product.size || "") + ")",
-        qty: String(qty),
-        amount: String(t.grand),
-        name: name,
-        email: email,
-        phone: phone,
-        address: addr,
-        city: city,
-        state: state,
-        pincode: pincode
-      });
-      try {
-        fetch("/", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: orderData.toString() })
-          .then(goToPayU, goToPayU);
-        setTimeout(goToPayU, 2500); // safety: never block the buyer
-      } catch (e) { goToPayU(); }
+      // Hand off to the payment gateway immediately. The order (address etc.) is
+      // captured server-side in /api/payment-success from the verified order.
+      post.submit();
     });
   }
 

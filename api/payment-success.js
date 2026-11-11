@@ -21,6 +21,31 @@ async function verifyWithPayU(txnid) {
   return { ok: !!(td && String(td.status).toLowerCase() === "success"), td };
 }
 
+// Cashfree: server-to-server order verification. Returns ok + a `td` normalised
+// to the same field names the email/Shiprocket code already uses.
+async function verifyWithCashfree(orderId) {
+  const APP_ID = process.env.CASHFREE_APP_ID, SECRET = process.env.CASHFREE_SECRET_KEY;
+  if (!APP_ID || !SECRET || !orderId) return { ok: false };
+  const MODE = process.env.CASHFREE_MODE === "production" ? "production" : "sandbox";
+  const base = MODE === "production" ? "https://api.cashfree.com/pg" : "https://sandbox.cashfree.com/pg";
+  const r = await fetch(base + "/orders/" + encodeURIComponent(orderId), {
+    headers: { "x-client-id": APP_ID, "x-client-secret": SECRET, "x-api-version": "2023-08-01" },
+    signal: timeoutSignal(8000),
+  });
+  const j = await r.json();
+  const ok = !!(j && String(j.order_status).toUpperCase() === "PAID");
+  const cd = (j && j.customer_details) || {};
+  const tags = (j && j.order_tags) || {};
+  const td = {
+    firstname: cd.customer_name || "", email: cd.customer_email || "", phone: cd.customer_phone || "",
+    amount: j && j.order_amount != null ? String(j.order_amount) : "",
+    productinfo: tags.productinfo || (j && j.order_note) || "Antra order",
+    address1: tags.address || "", city: tags.city || "", state: tags.state || "", zipcode: tags.pincode || "",
+    txnid: orderId,
+  };
+  return { ok, td };
+}
+
 async function createShiprocketOrder(b, td) {
   const EMAIL = process.env.SHIPROCKET_EMAIL, PASSWORD = process.env.SHIPROCKET_PASSWORD, PICKUP = process.env.SHIPROCKET_PICKUP;
   const address = (b.address1 || (td && td.address1) || "").trim();
@@ -95,10 +120,10 @@ async function sendOrderEmails(b, td, verified) {
   const ownerHtml =
     `<div style="max-width:580px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;border:1px solid #e2ddd2;border-radius:10px;overflow:hidden">
       <div style="background:${verified ? "#1a7a45" : "#b26a00"};color:#fff;padding:16px 22px">
-        <div style="font-size:18px;font-weight:bold">${verified ? "🛍️ New Antra order received" : "⚠️ Payment received — verify in PayU"}</div>
+        <div style="font-size:18px;font-weight:bold">${verified ? "🛍️ New Antra order received" : "⚠️ Payment received — please verify in your payment dashboard"}</div>
       </div>
       <div style="padding:22px">
-        ${verified ? "" : `<p style="color:#b26a00;margin:0 0 14px">Auto-verification did not confirm this payment. Check the PayU dashboard before shipping.</p>`}
+        ${verified ? "" : `<p style="color:#b26a00;margin:0 0 14px">Auto-verification did not confirm this payment. Check your payment gateway dashboard before shipping.</p>`}
         <table style="width:100%;border-collapse:collapse;font-size:14px">
           ${row("Customer", name)}${row("Email", esc(email))}${row("Phone", phone)}
           ${row("Product", product)}${row("Amount", "₹" + amount)}
@@ -144,16 +169,30 @@ module.exports = async function handler(req, res) {
     ? req.body
     : Object.fromEntries(new URLSearchParams(typeof req.body === "string" ? req.body : ""));
   const b = Object.assign({}, q, bodyObj);
-  const status = String(b.status || "").toLowerCase();
-  const paid = status === "success";
+
+  // Cashfree returns to the success URL carrying only order_id; PayU posts status/txnid.
+  const orderId = b.order_id || b.orderId || b.cf_order_id;
+  let paid = false, verified = false, td = null, data = b;
+
+  if (orderId) {
+    // ----- Cashfree -----
+    try { const v = await verifyWithCashfree(orderId); verified = v.ok; td = v.td; }
+    catch (e) { console.log("CF_VERIFY_ERROR", String(e)); }
+    paid = verified;          // only show "Thank you" if Cashfree confirms PAID
+    data = td || {};
+  } else {
+    // ----- PayU -----
+    paid = String(b.status || "").toLowerCase() === "success";
+    if (paid) {
+      try { const v = await verifyWithPayU(b.txnid); verified = v.ok; td = v.td; }
+      catch (e) { console.log("VERIFY_ERROR", String(e)); }
+    }
+  }
 
   if (paid) {
-    let verified = false, td = null;
-    try { const v = await verifyWithPayU(b.txnid); verified = v.ok; td = v.td; }
-    catch (e) { console.log("VERIFY_ERROR", String(e)); }
-    try { if (verified) await createShiprocketOrder(b, td); }
+    try { if (verified) await createShiprocketOrder(data, td); }
     catch (e) { console.log("SHIPROCKET_ERROR", String(e)); }
-    try { await sendOrderEmails(b, td, verified); }
+    try { await sendOrderEmails(data, td, verified); }
     catch (e) { console.log("EMAIL_ERROR", String(e)); }
   }
 

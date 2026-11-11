@@ -1,25 +1,101 @@
 /* =========================================================
-   ANTRA — PayU signing (Vercel serverless function)
-   Signs the payment request server-side (salt never in browser)
-   and auto-forwards the buyer to PayU. Mirror of netlify/functions/pay.js.
+   ANTRA — payment initiation (Vercel serverless function)
+   Prefers CASHFREE when enabled (CASHFREE_ENABLED=true + keys set);
+   otherwise falls back to PayU. Keeping the fallback means the live
+   site never loses payments while Cashfree is being switched on.
    ========================================================= */
 const crypto = require("crypto");
 
-module.exports = function handler(req, res) {
-  if (req.method !== "POST") { res.status(405).send("Method not allowed"); return; }
+function timeoutSignal(ms) { const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; }
 
+function cfConfig() {
+  const APP_ID = process.env.CASHFREE_APP_ID;
+  const SECRET = process.env.CASHFREE_SECRET_KEY;
+  const ENABLED = process.env.CASHFREE_ENABLED === "true";
+  const MODE = process.env.CASHFREE_MODE === "production" ? "production" : "sandbox";
+  const base = MODE === "production" ? "https://api.cashfree.com/pg" : "https://sandbox.cashfree.com/pg";
+  return { APP_ID, SECRET, ENABLED, MODE, base, on: !!(APP_ID && SECRET && ENABLED) };
+}
+
+async function payWithCashfree(b, res) {
+  const cf = cfConfig();
+  const SUCCESS_URL = process.env.SUCCESS_URL || "https://www.antrabotanicals.com/payment-success";
+  const amount = Number(String(b.amount || "").trim());
+  const orderId = "ANTRA" + Date.now() + Math.floor(Math.random() * 1000);
+  const payload = {
+    order_id: orderId,
+    order_amount: amount,
+    order_currency: "INR",
+    customer_details: {
+      customer_id: "cust" + Date.now(),
+      customer_name: String(b.firstname || "Customer").trim(),
+      customer_email: String(b.email || "").trim(),
+      customer_phone: String(b.phone || "").trim(),
+    },
+    order_meta: { return_url: SUCCESS_URL + "?order_id={order_id}" },
+    // Address + product stashed as tags so /payment-success can rebuild the
+    // Shiprocket order and emails from the server-verified order (Cashfree's
+    // return only carries order_id).
+    order_tags: {
+      address: String(b.address || "").trim().slice(0, 250),
+      city: String(b.city || "").trim().slice(0, 60),
+      state: String(b.state || "").trim().slice(0, 60),
+      pincode: String(b.pincode || "").trim().slice(0, 12),
+      productinfo: String(b.productinfo || "Antra order").trim().slice(0, 250),
+    },
+    order_note: String(b.productinfo || "Antra order").trim().slice(0, 200),
+  };
+
+  let session = null, errMsg = "";
+  try {
+    const r = await fetch(cf.base + "/orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-client-id": cf.APP_ID,
+        "x-client-secret": cf.SECRET,
+        "x-api-version": "2023-08-01",
+      },
+      body: JSON.stringify(payload),
+      signal: timeoutSignal(9000),
+    });
+    const j = await r.json();
+    session = j && j.payment_session_id;
+    if (!session) errMsg = (j && (j.message || JSON.stringify(j))) || "No payment session returned";
+  } catch (e) { errMsg = String((e && e.message) || e); }
+
+  res.setHeader("Content-Type", "text/html");
+  if (!session) {
+    console.log("CF_CREATE_FAIL", errMsg);
+    res.status(200).send(`<!doctype html><meta charset="utf-8"><body style="font-family:sans-serif;text-align:center;padding:48px">
+      <h2>Payment could not start</h2>
+      <p>Sorry, something went wrong starting your payment. Please try again, or contact us on WhatsApp.</p>
+      <a href="/" style="color:#9c7836">← Back to Antra</a></body>`);
+    return;
+  }
+  res.status(200).send(`<!doctype html><html><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script></head>
+    <body onload="go()" style="font-family:sans-serif;text-align:center;padding:48px">
+    <p>Redirecting you to secure payment…</p>
+    <script>
+      function go(){
+        try{
+          var cashfree = Cashfree({ mode: ${JSON.stringify(cf.MODE)} });
+          cashfree.checkout({ paymentSessionId: ${JSON.stringify(session)}, redirectTarget: "_self" });
+        }catch(e){
+          document.body.innerHTML = "<p>Could not open the payment page. Please try again.</p><a href='/'>Back to Antra</a>";
+        }
+      }
+    </script></body></html>`);
+}
+
+function payWithPayU(b, res) {
   const KEY = process.env.PAY4U_KEY;
   const SALT = process.env.PAY4U_SALT;
   const ENDPOINT = process.env.PAY4U_ENDPOINT || "https://secure.payu.in/_payment";
-  // NOTE: must be the PRIMARY host (www) — the apex antrabotanicals.com issues a 308
-  // redirect to www, and PayU's return POST to surl/furl can break across that hop.
   const SUCCESS_URL = process.env.SUCCESS_URL || "https://www.antrabotanicals.com/payment-success";
   const FAILURE_URL = process.env.FAILURE_URL || "https://www.antrabotanicals.com/payment-failure";
-
-  // Vercel parses urlencoded/json bodies into req.body; fall back to raw parse.
-  const b = (req.body && typeof req.body === "object")
-    ? req.body
-    : Object.fromEntries(new URLSearchParams(typeof req.body === "string" ? req.body : ""));
 
   const amount = String(b.amount || "").trim();
   const productinfo = String(b.productinfo || "Antra order").trim();
@@ -31,15 +107,11 @@ module.exports = function handler(req, res) {
   const state = String(b.state || "").trim();
   const pincode = String(b.pincode || "").trim();
 
-  if (!amount || !email) { res.status(400).send("amount and email are required"); return; }
-
   const txnid = "ANTRA" + Date.now() + Math.floor(Math.random() * 1000);
-  // key|txnid|amount|productinfo|firstname|email|+10 empties+|salt
   const seq = [KEY, txnid, amount, productinfo, firstname, email,
     "", "", "", "", "", "", "", "", "", "", SALT].join("|");
   const hash = crypto.createHash("sha512").update(seq).digest("hex");
 
-  // address fields are NOT in the hash — sent as extras (show in PayU txn, used for Shiprocket)
   const fields = {
     key: KEY, txnid, amount, productinfo, firstname, email, phone,
     address1: address, city, state, zipcode: pincode, country: "India",
@@ -54,4 +126,19 @@ module.exports = function handler(req, res) {
     <p style="font-family:sans-serif">Redirecting you to secure payment…</p>
     <form method="post" action="${ENDPOINT}">${inputs}</form>
   </body></html>`);
+}
+
+module.exports = async function handler(req, res) {
+  if (req.method !== "POST") { res.status(405).send("Method not allowed"); return; }
+  const b = (req.body && typeof req.body === "object")
+    ? req.body
+    : Object.fromEntries(new URLSearchParams(typeof req.body === "string" ? req.body : ""));
+
+  if (!String(b.amount || "").trim() || !String(b.email || "").trim()) {
+    res.status(400).send("amount and email are required");
+    return;
+  }
+
+  if (cfConfig().on) { await payWithCashfree(b, res); return; }
+  payWithPayU(b, res);
 };
