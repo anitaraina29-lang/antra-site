@@ -6,6 +6,11 @@
    ========================================================= */
 const crypto = require("crypto");
 
+// MASTER SWITCH — keep false until Cashfree account is activated for live
+// transactions. While false, checkout goes straight to PayU (no Cashfree attempt).
+// Flip to true (and keep CASHFREE_* env vars set) to go live on Cashfree.
+const CASHFREE_LIVE = false;
+
 function timeoutSignal(ms) { const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; }
 
 function cfConfig() {
@@ -14,7 +19,7 @@ function cfConfig() {
   const ENABLED = process.env.CASHFREE_ENABLED === "true";
   const MODE = process.env.CASHFREE_MODE === "production" ? "production" : "sandbox";
   const base = MODE === "production" ? "https://api.cashfree.com/pg" : "https://sandbox.cashfree.com/pg";
-  return { APP_ID, SECRET, ENABLED, MODE, base, on: !!(APP_ID && SECRET && ENABLED) };
+  return { APP_ID, SECRET, ENABLED, MODE, base, on: CASHFREE_LIVE && !!(APP_ID && SECRET && ENABLED) };
 }
 
 async function payWithCashfree(b, res) {
