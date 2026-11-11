@@ -3,21 +3,6 @@
    All copy sourced from the brand content document.
    ========================================================= */
 window.ANTRA_PRODUCTS = [
-  /* ---- TEMPORARY TEST PRODUCT (₹1) — to verify payment + emails. REMOVE after test. ---- */
-  {
-    id: "antra-test",
-    name: "Test Order (please ignore)",
-    collection: "test",
-    type: "Verification",
-    price: 1,
-    size: "test",
-    accent: "#9c7836",
-    image: "assets/img/luna-1.jpg",
-    gallery: ["assets/img/luna-1.jpg"],
-    eyebrow: "Internal test",
-    short: "Temporary ₹1 item to verify payment and order emails.",
-    story: "Temporary test product — safe to ignore."
-  },
   /* ---------------- THE VERO COLLECTION (perfume oils) ---------------- */
   {
     id: "initiation",
