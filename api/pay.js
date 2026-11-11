@@ -64,15 +64,19 @@ async function payWithCashfree(b, res) {
     if (!session) errMsg = (j && (j.message || JSON.stringify(j))) || "No payment session returned";
   } catch (e) { errMsg = String((e && e.message) || e); }
 
-  res.setHeader("Content-Type", "text/html");
   if (!session) {
     console.log("CF_CREATE_FAIL", errMsg);
+    // Safety net: if Cashfree can't start (e.g. account not yet activated) but PayU
+    // is still configured, fall back to PayU so the buyer can always pay.
+    if (process.env.PAY4U_KEY && process.env.PAY4U_SALT) { payWithPayU(b, res); return; }
+    res.setHeader("Content-Type", "text/html");
     res.status(200).send(`<!doctype html><meta charset="utf-8"><body style="font-family:sans-serif;text-align:center;padding:48px">
       <h2>Payment could not start</h2>
       <p>Sorry, something went wrong starting your payment. Please try again, or contact us on WhatsApp.</p>
       <a href="/" style="color:#9c7836">← Back to Antra</a></body>`);
     return;
   }
+  res.setHeader("Content-Type", "text/html");
   res.status(200).send(`<!doctype html><html><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script></head>
