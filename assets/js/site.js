@@ -164,7 +164,9 @@
           '</div>' +
           '<div class="foot-col"><h4>Collections</h4>' +
             '<a href="shop.html#vero">The Vero Collection</a>' +
+            '<a href="shop.html#shakti">The Shakti Collection</a>' +
             '<a href="shop.html#grove">Goddess Grove</a>' +
+            '<a href="shop.html#apothecary">The Apothecary</a>' +
             '<a href="product.html?id=initiation">The Initiation Set</a>' +
             '<a href="gifting.html">Gifting & Ceremony</a>' +
           '</div>' +
@@ -252,8 +254,14 @@
     document.title = p.name + " · Antra";
     document.documentElement.style.setProperty("--accent", p.accent);
 
-    var collName = p.collection === "vero" ? "The Vero Collection" : "Goddess Grove";
-    var collHash = p.collection === "vero" ? "vero" : "grove";
+    var COLL = {
+      vero: ["The Vero Collection", "vero"],
+      shakti: ["The Shakti Collection", "shakti"],
+      grove: ["Goddess Grove", "grove"],
+      apothecary: ["The Apothecary", "apothecary"]
+    };
+    var cm = COLL[p.collection] || COLL.grove;
+    var collName = cm[0], collHash = cm[1];
 
     var thumbs = p.gallery.map(function (g, i) {
       return '<button class="' + (i === 0 ? "active" : "") + '" data-src="' + g + '"><img src="' + g + '" alt="' + esc(p.name) + ' view ' + (i + 1) + '"></button>';
@@ -272,12 +280,16 @@
     if (p.ingredients) {
       acc += '<details><summary>Full Ingredients <span class="ico">+</span></summary><div class="acc-body">' + ing(p) + '</div></details>';
     }
-    acc += '<details><summary>How to Wear <span class="ico">+</span></summary><div class="acc-body"><p>' +
-      (p.collection === "vero"
-        ? 'Give each scent time to unfold from top, to heart, to base. Apply generously to pulse points, hair, or the back of the neck. Without synthetics, our scents are intimate and alive, lasting 4–6 hours depending on your skin chemistry.'
-        : 'Warm 3–5 drops between clean palms and press into damp skin, morning or night. A little goes far. Follow with your moisturiser if desired.') +
-      '</p></div></details>';
-    acc += '<details><summary>Safety <span class="ico">+</span></summary><div class="acc-body"><p>Always patch test before first use. For external use only; avoid contact with eyes. Discontinue use if irritation occurs.' +
+    var howToText = p.howTo || (
+      (p.collection === "vero" || p.collection === "shakti")
+        ? 'Give each scent time to unfold from top, to heart, to base. Apply to pulse points, hair, or the back of the neck. Without synthetics, our scents are intimate and alive, lasting 4–6 hours depending on your skin chemistry.'
+        : p.collection === "grove"
+          ? 'Warm 3–5 drops between clean palms and press into damp skin, morning or night. A little goes far. Follow with your moisturiser if desired.'
+          : 'Warm a little between clean fingertips and massage into the area as needed — lips, cheeks, hands, cuticles or the lower belly. A little goes far; reapply whenever you wish.');
+    acc += '<details><summary>How to Use <span class="ico">+</span></summary><div class="acc-body"><p>' + esc(howToText) + '</p></div></details>';
+    acc += '<details><summary>Safety <span class="ico">+</span></summary><div class="acc-body"><p>' +
+      (p.caution ? '<strong style="color:#b23b3b">' + esc(p.caution) + '</strong><br><br>' : '') +
+      'Always patch test before first use. For external use only; avoid contact with eyes. Discontinue use if irritation occurs.' +
       (p.shelfLife ? ' <br><br><strong>Shelf life:</strong> ' + esc(p.shelfLife) : '') +
       ' If you are pregnant or nursing, please reach out and we will gladly guide you to the safest blends.</p></div></details>';
 
@@ -328,7 +340,9 @@
   function renderShop() {
     if (!document.getElementById("shop-vero")) return;
     renderGrid("shop-vero", PRODUCTS.filter(function (p) { return p.collection === "vero"; }));
+    renderGrid("shop-shakti", PRODUCTS.filter(function (p) { return p.collection === "shakti"; }));
     renderGrid("shop-grove", PRODUCTS.filter(function (p) { return p.collection === "grove"; }));
+    renderGrid("shop-apothecary", PRODUCTS.filter(function (p) { return p.collection === "apothecary"; }));
   }
 
   /* ---------- The Antra Oracle ("Find your goddess") ---------- */
