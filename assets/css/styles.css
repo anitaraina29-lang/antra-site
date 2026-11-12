@@ -207,7 +207,7 @@ body:has(.page-hero) .site-header:not(.scrolled) :focus-visible{ outline-color:v
    HEADER
    ========================================================= */
 .site-header{
-  position:fixed; inset:0 0 auto 0; z-index:100;
+  position:fixed; inset:0 0 auto 0; z-index:130;  /* above the nav-backdrop (105) so the open mobile menu isn't dimmed by it */
   display:flex; align-items:center; justify-content:space-between;
   padding:22px clamp(20px,5vw,56px);
   transition:background .5s var(--ease), padding .5s var(--ease), box-shadow .5s var(--ease), border-color .5s;
